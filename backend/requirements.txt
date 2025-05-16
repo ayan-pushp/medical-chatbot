@@ -1,0 +1,12 @@
+fastapi==0.95.2
+uvicorn==0.22.0
+sqlalchemy==2.0.15
+python-jose==3.3.0
+passlib==1.7.4
+bcrypt==4.0.1
+transformers
+torch
+scispacy
+spacy
+scikit-learn
+pandas
