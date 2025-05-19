@@ -41,7 +41,7 @@ def generate_response(intent: str, state: DialogState) -> str:
         return "Hello! Please describe your symptoms."
     
     elif intent == "describe_symptom":
-        extracted = symptom_extractor.extract(user_input)
+        extracted = symptom_extractor.extract(state.full_input[-1])
         symptoms = list({
                     item.get('preferred_name', '').lower() or 
                     item.get('symptom', '').lower() 
@@ -63,10 +63,12 @@ def generate_response(intent: str, state: DialogState) -> str:
         reply_lines = [f"Recognized symptoms: {', '.join(state.symptoms)}", 
                       "Possible diseases:"]
         
-        for disease, prob in state.disease_predictions:
-            reply_lines.append(f"{disease}: {prob:.1%}")
+        for dp in state.disease_predictions:
+            reply_lines.append(f"{dp['disease']}: {dp['probability']:.1%}")
 
-        top_disease, confidence = state.disease_predictions[0]
+        top_disease = state.disease_predictions[0]["disease"]
+        confidence = state.disease_predictions[0]["probability"]
+
         if confidence < state.confidence_threshold:
             state.awaiting_confirmation = True
             reply_lines.append("Could you describe any other symptoms to help me be more certain? (yes/no)")
@@ -79,7 +81,7 @@ def generate_response(intent: str, state: DialogState) -> str:
     
     elif intent == "ask_treatment":
         if state.disease_predictions:
-            top_disease, _ = state.disease_predictions[0]
+            top_disease = state.disease_predictions[0]["disease"]
             return f"For {top_disease}, please consult a doctor for personalized treatment."
         return "Please describe your symptoms first."
 
@@ -98,13 +100,14 @@ async def process_message(
     # Store user message
     await store_message(username, user_input, True)
 
+    reply=""
     # Handle yes/no responses
     if user_input in ["yes", "no"] and state.awaiting_confirmation:
         if user_input == "no":
             if not state.final_assessment_done:
                 reply = ("Thank you for consulting DocBot. Take care!" 
                         if not state.disease_predictions 
-                        else f"Final assessment: {state.disease_predictions[0][0]}\nPlease consult with a doctor.")
+                        else f"Final assessment: {state.disease_predictions[0]['disease']}\nPlease consult with a doctor.")
                 state.final_assessment_done = True
         else:  # "yes"
             state.awaiting_symptoms = True
@@ -130,10 +133,10 @@ async def process_message(
                 reply = "Sorry, I didn't recognize any symptoms. Please describe them differently."
         
         # Classify intent if not in special flow
-        if not any([state.awaiting_confirmation, state.awaiting_symptoms]):
-            state.intent = intent_classifier.predict(user_input)
-        
-        reply = generate_response(state.intent, state)
+        if not reply:  # Only if no reply was assigned above
+            if not any([state.awaiting_confirmation, state.awaiting_symptoms]):
+                state.intent = intent_classifier.predict(user_input)
+            reply = generate_response(state.intent, state)
 
     # Store bot response
     await store_message(

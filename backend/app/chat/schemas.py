@@ -33,7 +33,7 @@ class ChatMessage(BaseModel):
     is_user: bool
     intent: Union[str, None] = None
     symptoms: List[str] = []
-    disease_predictions: List[DiseasePrediction] = []  # Changed to proper model
+    disease_predictions: List[DiseasePrediction] = []
     timestamp: datetime
 
     model_config = ConfigDict(
@@ -48,8 +48,18 @@ class ChatMessage(BaseModel):
         if '_id' in data:
             data['_id'] = str(data['_id'])
         if 'disease_predictions' in data:
-            data['disease_predictions'] = [
-                {'name': name, 'probability': prob} 
-                for name, prob in data['disease_predictions']
-            ]
+            cleaned_predictions = []
+            for item in data['disease_predictions']:
+                if isinstance(item, dict):
+                    # already dict, maybe rename keys if needed
+                    name = item.get('name') or item.get('disease') or "Unknown"
+                    prob = item.get('probability') or item.get('prob') or 0.0
+                elif isinstance(item, (list, tuple)) and len(item) == 2:
+                    name, prob = item
+                else:
+                    # fallback default
+                    name, prob = "Unknown", 0.0
+                cleaned_predictions.append({'name': name, 'probability': float(prob)})
+            data['disease_predictions'] = cleaned_predictions
+
         return cls(**data)

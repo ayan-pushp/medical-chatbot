@@ -17,6 +17,9 @@ router = APIRouter()
 async def login_for_access_token(
     form_data: OAuth2PasswordRequestForm = Depends(),
 ):
+    print("Form Data - Username:", form_data.username)
+    print("Form Data - Password:", form_data.password)
+
     user = await authenticate_user(form_data.username, form_data.password)
     if not user:
         raise HTTPException(

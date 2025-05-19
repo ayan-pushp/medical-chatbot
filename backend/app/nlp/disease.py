@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 from keras.models import load_model
 import joblib
-from typing import List, Tuple
+from typing import List, Dict
 
 class DiseasePredictor:
     def __init__(self):
@@ -13,15 +13,13 @@ class DiseasePredictor:
         except Exception as e:
             raise RuntimeError(f"Failed to load disease prediction models: {str(e)}")
 
-    def predict(self, symptoms: List[str], top_n: int = 3) -> List[Tuple[str, float]]:
-        
+    def predict(self, symptoms: List[str], top_n: int = 3) -> List[Dict[str, float]]:
         if not symptoms:
             raise ValueError("At least one symptom must be provided")
 
-        # Create input vector (mirrors your notebook code)
         input_vector = np.zeros(len(self.symptom_mappings.columns), dtype='float32')
         found_symptoms = []
-        
+
         for symptom in symptoms:
             norm_symptom = symptom.lower().strip()
             if norm_symptom in self.symptom_mappings.columns:
@@ -30,13 +28,12 @@ class DiseasePredictor:
                 found_symptoms.append(norm_symptom)
 
         if not found_symptoms:
-            return [("No matching symptoms found", 0.0)]
+            return [{"disease": "No matching symptoms found", "probability": 0.0}]
 
-        # Get predictions
         proba = self.model.predict(input_vector.reshape(1, -1), verbose=0)[0]
         top_indices = np.argsort(proba)[-top_n:][::-1]
-        
+
         return [
-            (self.disease_encoder.inverse_transform([idx])[0], float(proba[idx]))
+            {"disease": self.disease_encoder.inverse_transform([idx])[0], "probability": float(proba[idx])}
             for idx in top_indices
         ]
